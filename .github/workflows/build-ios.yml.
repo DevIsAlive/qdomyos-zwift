@@ -1,0 +1,51 @@
+name: Build QZ iOS IPA
+
+on:
+  workflow_dispatch: # Allows you to trigger the build manually
+
+jobs:
+  build:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # Required to fetch smtpclient and qmdnsengine
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '5.15.2'
+          target: 'ios'
+          arch: 'ios'
+
+      - name: Generate Xcode Project
+        run: |
+          cd src
+          qmake qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release
+
+      - name: Build and Archive
+        run: |
+          cd src
+          xcodebuild archive \
+            -project qdomyos-zwift.xcodeproj \
+            -scheme qdomyos-zwift \
+            -configuration Release \
+            -archivePath $PWD/build/qdomyos-zwift.xcarchive \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Export IPA Payload
+        run: |
+          # Manually package the .app into a Payload folder to create an unsigned IPA
+          mkdir -p Payload
+          cp -r src/build/qdomyos-zwift.xcarchive/Products/Applications/qdomyos-zwift.app Payload/
+          zip -r qdomyos-zwift-unsigned.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qz-ios-ipa
+          path: qdomyos-zwift-unsigned.ipa
