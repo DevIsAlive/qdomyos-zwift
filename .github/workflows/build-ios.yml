@@ -18,24 +18,18 @@ jobs:
           target: 'ios'
           modules: 'qtconnectivity qtpositioning qtnetworkauth qtwebsockets qtspeech qtlocation qtmultimedia qtcharts'
 
-      - name: Generate Xcode Project
-        run: qmake -spec macx-xcode qdomyos-zwift.pro
-
-      - name: Build Unsigned App
+      - name: Build with Qt Make
         run: |
-          xcodebuild build \
-            -project qdomyos-zwift.xcodeproj \
-            -scheme qdomyos-zwift \
-            -configuration Release \
-            -sdk iphoneos \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          mkdir build-ios
+          cd build-ios
+          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release
+          make -j$(sysctl -n hw.ncpu)
 
       - name: Package into IPA
         run: |
           mkdir Payload
-          find . -type d -name "qdomyos-zwift.app" -exec cp -R {} Payload/ \;
+          # Search for the .app folder inside the build directory
+          find ./build-ios -type d -name "*.app" -exec cp -R {} Payload/ \;
           zip -r qdomyos-zwift.ipa Payload
 
       - name: Upload IPA Artifact
