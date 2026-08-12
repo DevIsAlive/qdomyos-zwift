@@ -16,6 +16,7 @@ jobs:
         with:
           version: '6.5.3'
           target: 'ios'
+          modules: 'qtconnectivity qtpositioning qtnetworkauth qtwebsockets qtspeech qtlocation qtmultimedia qtcharts'
 
       - name: Generate Xcode Project
         run: qmake -spec macx-xcode qdomyos-zwift.pro
