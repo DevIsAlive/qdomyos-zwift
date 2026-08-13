@@ -16,7 +16,7 @@ jobs:
         with:
           version: '5.15.2'
           target: 'ios'
-          modules: 'qtconnectivity qtpositioning qtwebsockets qtspeech qtlocation qtmultimedia qtcharts'
+          modules: 'qtcharts'
 
       - name: Build with Qt Make
         run: |
