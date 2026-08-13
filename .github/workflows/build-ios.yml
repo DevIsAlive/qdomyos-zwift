@@ -29,20 +29,24 @@ jobs:
         working-directory: build-ios
         run: qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
 
+      - name: Pre-create Generated Source Stubs
+        working-directory: build-ios
+        run: |
+          # Satisfies Xcode's static file check before build scripts execute
+          touch src/qdomyoszwift_qmltyperegistrations.cpp
+          touch src/qdomyoszwift_qml_plugin_import.cpp
+
       - name: Compile App (Bypass Apple Code Signing)
         working-directory: build-ios
         run: |
           echo "Creating Xcode override configuration..."
-          # This file forces Xcode to skip all certificate checks
           echo "CODE_SIGNING_ALLOWED = NO" > bypass.xcconfig
           echo "CODE_SIGNING_REQUIRED = NO" >> bypass.xcconfig
           echo "CODE_SIGN_IDENTITY = " >> bypass.xcconfig
           
-          # This environment variable injects our override into Xcode invisibly
           export XCODE_XCCONFIG_FILE="$PWD/bypass.xcconfig"
           
           echo "Compiling the app..."
-          # Run standard make. It will compile perfectly and skip the signing error!
           make -j3
 
       - name: Package Unsigned IPA
