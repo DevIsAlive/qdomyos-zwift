@@ -5,73 +5,62 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Checkout smtpclient submodule
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          repository: bluetiger9/SmtpClient-for-Qt
-          path: "src/smtpclient/"
-          ref: 3fa4a0fe5797070339422cf18b5e9ed8dcb91f9c
+          submodules: recursive
 
-      - name: Checkout googletest submodule
-        uses: actions/checkout@v4
-        with:
-          repository: google/googletest
-          path: "tst/googletest/"
-          ref: "release-1.12.1"
-
-      - name: Rename lib TARGET to match the Xcode scheme
-        run: sed -i '' 's/TARGET = qdomyos-zwift/TARGET = qdomyoszwift/g' src/qdomyos-zwift-lib.pro
-
-      - name: Strip the maintainer's own hardcoded signing team
+      - name: Strip the maintainer's hardcoded signing team
         run: |
-          sed -i '' 's/QMAKE_DEVELOPMENT_TEAM = 6335M7T29D/# QMAKE_DEVELOPMENT_TEAM disabled for CI/' qdomyos-zwift.pro src/qdomyos-zwift.pro
-          sed -i '' 's/QMAKE_CODE_SIGN_IDENTITY = "iPhone Developer"/# QMAKE_CODE_SIGN_IDENTITY disabled for CI/' qdomyos-zwift.pro src/qdomyos-zwift.pro
-          sed -i '' 's/QMAKE_CODE_SIGN_STYLE = Automatic/# QMAKE_CODE_SIGN_STYLE disabled for CI/' qdomyos-zwift.pro src/qdomyos-zwift.pro
+          sed -i '' 's/QMAKE_DEVELOPMENT_TEAM = 6335M7T29D/# QMAKE_DEVELOPMENT_TEAM disabled for CI/' qdomyos-zwift.pro
+          sed -i '' 's/QMAKE_CODE_SIGN_IDENTITY = "iPhone Developer"/# QMAKE_CODE_SIGN_IDENTITY disabled for CI/' qdomyos-zwift.pro
+          sed -i '' 's/QMAKE_CODE_SIGN_STYLE = Automatic/# QMAKE_CODE_SIGN_STYLE disabled for CI/' qdomyos-zwift.pro
 
-      - name: Install Qt for iOS
+      - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: '5.15.2'
-          host: 'mac'
           target: 'ios'
-          modules: 'qtcharts qtnetworkauth'
-          dir: '${{ github.workspace }}/output/ios/'
-          cache: 'true'
+          modules: 'qtnetworkauth qtcharts'
 
-      - name: Fix Qt's ios.conf (ios-simulator -> iphonesimulator)
-        run: find ${{ github.workspace }}/output/ios/ -name 'ios.conf' -exec sed -i '' 's/ios-simulator/iphonesimulator/g' {} \;
-
-      - name: Fix Qt's devices.py (python -> python3)
-        run: find ${{ github.workspace }}/output/ios/ -name 'devices.py' -exec sed -i '' 's/\/usr\/bin\/python/\/usr\/bin\/python3/g' {} \;
-
-      - name: Apply the maintainer's prebuilt Bluetooth patch
-        run: cp qt-patches/ios/5.15.2/binary/*.* ${{ github.workspace }}/output/ios/Qt/5.15.2/ios/lib/
-
-      - name: Create build folder
+      - name: Create Build Folder
         run: mkdir build-ios
 
-      - name: qmake (device, release)
+      - name: Run qmake
         working-directory: build-ios
         run: qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
 
-      - name: Build
+      - name: Pre-create Generated Source Stubs
         working-directory: build-ios
-        run: make -j4 CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        run: |
+          mkdir -p src
+          touch src/qdomyoszwift_qmltyperegistrations.cpp
+          touch src/qdomyoszwift_qml_plugin_import.cpp
 
-      - name: Package unsigned IPA
+      - name: Compile App (Bypass Apple Code Signing)
+        working-directory: build-ios
+        run: |
+          echo "CODE_SIGNING_ALLOWED = NO" > bypass.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> bypass.xcconfig
+          echo "CODE_SIGN_IDENTITY = " >> bypass.xcconfig
+          echo "CODE_SIGN_STYLE = Manual" >> bypass.xcconfig
+          echo "DEVELOPMENT_TEAM = " >> bypass.xcconfig
+
+          export XCODE_XCCONFIG_FILE="$PWD/bypass.xcconfig"
+
+          make -j4
+
+      - name: Package Unsigned IPA
         working-directory: build-ios
         run: |
           mkdir -p Payload
-          find . -type d -name "qdomyoszwift.app" -exec cp -R {} Payload/ \;
+          find . -type d -name "*.app" -exec cp -R {} Payload/ \;
           zip -qr qdomyoszwift-unsigned.ipa Payload
 
-      - name: Upload IPA artifact
+      - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: qdomyoszwift-ios-unsigned
