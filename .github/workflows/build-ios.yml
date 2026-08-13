@@ -1,38 +1,53 @@
-name: Build iOS IPA
+name: iOS Unsigned Build (For Sideloadly)
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to trigger the build manually
+  push:
+    branches: [ "master", "main" ] # Triggers when code is updated
 
 jobs:
   build-ios:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@v3
         with:
           version: '5.15.2'
           target: 'ios'
-          modules: 'qtcharts qtnetworkauth'
+          
+      - name: Create Build Folder
+        run: mkdir build-ios
 
-      - name: Build with Qt Make
-        run: |
-          mkdir build-ios
-          cd build-ios
-          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
-          make -j$(sysctl -n hw.ncpu)
+      - name: Run qmake
+        working-directory: build-ios
+        run: qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
 
-      - name: Package into IPA
+      - name: Compile App (Bypass Apple Code Signing)
+        working-directory: build-ios
+        # The flags at the end tell Xcode to completely ignore the missing developer certificates
+        run: make -j3 CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+
+      - name: Package Unsigned IPA
+        working-directory: build-ios
         run: |
-          mkdir Payload
-          find ./build-ios -type d -name "*.app" -exec cp -R {} Payload/ \;
-          zip -r qdomyos-zwift.ipa Payload
+          echo "Creating Payload folder..."
+          mkdir -p Payload
+          
+          echo "Finding the compiled .app file and moving it..."
+          # This automatically searches for the compiled .app folder and moves it to Payload
+          find . -type d -name "*.app" -exec cp -R {} Payload/ \;
+          
+          echo "Compressing into IPA format..."
+          zip -qr qdomyoszwift-unsigned.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qdomyos-zwift-ios
-          path: qdomyos-zwift.ipa
+          name: qdomyoszwift-ios-unsigned
+          path: build-ios/qdomyoszwift-unsigned.ipa
