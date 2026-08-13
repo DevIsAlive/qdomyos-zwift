@@ -20,7 +20,6 @@ jobs:
         with:
           version: '5.15.2'
           target: 'ios'
-          # This line tells it to download the missing add-ons
           modules: 'qtnetworkauth qtcharts'
 
       - name: Create Build Folder
@@ -32,7 +31,17 @@ jobs:
 
       - name: Compile App (Bypass Apple Code Signing)
         working-directory: build-ios
-        run: make -j3 CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        run: |
+          echo "Starting initial compilation..."
+          # This compiles the code but intentionally allows the signing step to fail (|| true prevents GitHub from stopping)
+          make -j3 || true
+          
+          echo "Bypassing Xcode signing and generating the .app..."
+          # Move into the folder where Qt generated the Xcode project
+          cd src
+          
+          # Run xcodebuild directly, forcing it to ignore all signing certificates
+          xcodebuild build -project qdomyoszwift.xcodeproj -scheme qdomyoszwift -configuration Release -arch arm64 -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
       - name: Package Unsigned IPA
         working-directory: build-ios
