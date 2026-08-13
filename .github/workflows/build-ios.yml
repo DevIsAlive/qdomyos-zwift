@@ -1,4 +1,4 @@
-name: iOS Unsigned Build (For Sideloadly)
+name: iOS Unsigned Build (For Sideloadly/LiveContainer)
 
 on:
   workflow_dispatch:
@@ -19,12 +19,12 @@ jobs:
           sed -i '' 's/QMAKE_CODE_SIGN_IDENTITY = "iPhone Developer"/# QMAKE_CODE_SIGN_IDENTITY disabled for CI/' qdomyos-zwift.pro
           sed -i '' 's/QMAKE_CODE_SIGN_STYLE = Automatic/# QMAKE_CODE_SIGN_STYLE disabled for CI/' qdomyos-zwift.pro
 
-      - name: Install Qt
+      - name: Install Qt (Includes Web & Multimedia for Strava)
         uses: jurplel/install-qt-action@v3
         with:
           version: '5.15.2'
           target: 'ios'
-          modules: 'qtnetworkauth qtcharts'
+          modules: 'qtnetworkauth qtcharts qtwebview qtmultimedia'
           dir: '${{ github.workspace }}/output/ios/'
 
       - name: Apply the maintainer's real Bluetooth patch
@@ -33,9 +33,12 @@ jobs:
       - name: Create Build Folder
         run: mkdir build-ios
 
-      - name: Run qmake
+      - name: Run qmake (Inject Custom Strava API Keys)
         working-directory: build-ios
-        run: qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
+        run: >
+          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
+          "DEFINES+=STRAVA_CLIENT_ID=\\\"${{ secrets.STRAVA_CLIENT_ID }}\\\""
+          "DEFINES+=STRAVA_SECRET_KEY=\\\"${{ secrets.STRAVA_CLIENT_SECRET }}\\\""
 
       - name: Pre-create Generated Source Stubs
         working-directory: build-ios
@@ -52,9 +55,9 @@ jobs:
           echo "CODE_SIGN_IDENTITY = " >> bypass.xcconfig
           echo "CODE_SIGN_STYLE = Manual" >> bypass.xcconfig
           echo "DEVELOPMENT_TEAM = " >> bypass.xcconfig
-
+          
           export XCODE_XCCONFIG_FILE="$PWD/bypass.xcconfig"
-
+          
           make -j4
 
       - name: Package Unsigned IPA
