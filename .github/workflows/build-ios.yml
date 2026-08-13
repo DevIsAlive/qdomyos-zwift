@@ -25,6 +25,10 @@ jobs:
           version: '5.15.2'
           target: 'ios'
           modules: 'qtnetworkauth qtcharts'
+          dir: '${{ github.workspace }}/output/ios/'
+
+      - name: Apply the maintainer's real Bluetooth patch
+        run: cp qt-patches/ios/5.15.2/binary/*.* ${{ github.workspace }}/output/ios/Qt/5.15.2/ios/lib/
 
       - name: Create Build Folder
         run: mkdir build-ios
