@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir build-ios
           cd build-ios
-          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release
+          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=iphoneos
           make -j$(sysctl -n hw.ncpu)
 
       - name: Package into IPA
