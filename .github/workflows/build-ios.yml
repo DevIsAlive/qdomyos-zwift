@@ -19,12 +19,12 @@ jobs:
           sed -i '' 's/QMAKE_CODE_SIGN_IDENTITY = "iPhone Developer"/# QMAKE_CODE_SIGN_IDENTITY disabled for CI/' qdomyos-zwift.pro
           sed -i '' 's/QMAKE_CODE_SIGN_STYLE = Automatic/# QMAKE_CODE_SIGN_STYLE disabled for CI/' qdomyos-zwift.pro
 
-      - name: Install Qt (Includes Web & Multimedia for Strava)
+      - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: '5.15.2'
           target: 'ios'
-          modules: 'qtnetworkauth qtcharts qtwebview qtmultimedia'
+          modules: 'qtnetworkauth qtcharts'
           dir: '${{ github.workspace }}/output/ios/'
 
       - name: Apply the maintainer's real Bluetooth patch
