@@ -32,16 +32,18 @@ jobs:
       - name: Compile App (Bypass Apple Code Signing)
         working-directory: build-ios
         run: |
-          echo "Starting initial compilation..."
-          # This compiles the code but intentionally allows the signing step to fail (|| true prevents GitHub from stopping)
-          make -j3 || true
+          echo "Creating Xcode override configuration..."
+          # This file forces Xcode to skip all certificate checks
+          echo "CODE_SIGNING_ALLOWED = NO" > bypass.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> bypass.xcconfig
+          echo "CODE_SIGN_IDENTITY = " >> bypass.xcconfig
           
-          echo "Bypassing Xcode signing and generating the .app..."
-          # Move into the folder where Qt generated the Xcode project
-          cd src
+          # This environment variable injects our override into Xcode invisibly
+          export XCODE_XCCONFIG_FILE="$PWD/bypass.xcconfig"
           
-          # Run xcodebuild directly, forcing it to ignore all signing certificates
-          xcodebuild build -project qdomyoszwift.xcodeproj -scheme qdomyoszwift -configuration Release -arch arm64 -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+          echo "Compiling the app..."
+          # Run standard make. It will compile perfectly and skip the signing error!
+          make -j3
 
       - name: Package Unsigned IPA
         working-directory: build-ios
