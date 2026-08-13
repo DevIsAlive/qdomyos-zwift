@@ -30,11 +30,21 @@ jobs:
       - name: Apply the maintainer's real Bluetooth patch
         run: cp qt-patches/ios/5.15.2/binary/*.* ${{ github.workspace }}/output/ios/Qt/5.15.2/ios/lib/
 
-      # --- NEW: build qthttpserver for iOS so qtHaveModule(httpserver) is true,
-      # which is what makes the .pri file add QT += webview for iOS. Without this,
-      # the in-app Strava login WebView silently fails to load and the app falls
-      # back to external Safari, which can't reliably complete the 127.0.0.1
-      # loopback OAuth callback.
+      # --- Strava secret fix ---
+      # STRAVA_SECRET_KEY is ONLY ever read from src/secret.h (via __has_include).
+      # If that file doesn't exist, homeform.h unconditionally redefines it to the
+      # placeholder word "test", silently overriding any -D flag passed via qmake.
+      # Do NOT quote the value here -- STRINGIFY() in the source adds the quotes itself.
+      - name: Write Strava secret header
+        working-directory: src
+        run: echo "#define STRAVA_SECRET_KEY ${{ secrets.STRAVA_CLIENT_SECRET }}" > secret.h
+      # --- end Strava secret fix ---
+
+      # --- qthttpserver / in-app WebView fix ---
+      # Needed so qtHaveModule(httpserver) is true, which is what makes the .pri
+      # file add QT += webview for iOS. Without this the in-app Strava login
+      # WebView silently fails to load and the app falls back to external Safari,
+      # which can't reliably complete the 127.0.0.1 loopback OAuth callback.
       - name: Prep qthttpserver 3rd-party headers
         run: cp qHttpServerBin/5.15.2/headers/* src/qthttpserver/src/3rdparty/http-parser/
 
@@ -55,17 +65,16 @@ jobs:
       - name: Install qthttpserver for iOS
         working-directory: src/qthttpserver
         run: make install
-      # --- end new steps ---
+      # --- end qthttpserver fix ---
 
       - name: Create Build Folder
         run: mkdir build-ios
 
-      - name: Run qmake (Inject Custom Strava API Keys)
+      - name: Run qmake (Inject Custom Strava Client ID)
         working-directory: build-ios
         run: >
           qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
           "DEFINES+=STRAVA_CLIENT_ID=\\\"${{ secrets.STRAVA_CLIENT_ID }}\\\""
-          "DEFINES+=STRAVA_SECRET_KEY=\\\"${{ secrets.STRAVA_CLIENT_SECRET }}\\\""
 
       - name: Pre-create Generated Source Stubs
         working-directory: build-ios
