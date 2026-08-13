@@ -1,39 +1,51 @@
-name: Build iOS IPA
+name: Build QZ iOS IPA
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to trigger the build manually
 
 jobs:
-  build-ios:
-    runs-on: macos-latest
+  build:
+    runs-on: macos-13
+
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: recursive # Required to fetch smtpclient and qmdnsengine
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@v3
         with:
-          version: '6.5.3'
+          version: '5.15.2'
           target: 'ios'
-          modules: 'qtconnectivity qtpositioning qtnetworkauth qtwebsockets qtspeech qtlocation qtmultimedia qtcharts'
+          arch: 'ios'
 
-      - name: Build with Qt Make
+      - name: Generate Xcode Project
         run: |
-          mkdir build-ios
-          cd build-ios
-          qmake ../qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release
-          make -j$(sysctl -n hw.ncpu)
+          cd src
+          qmake qdomyos-zwift.pro -spec macx-ios-clang CONFIG+=release
 
-      - name: Package into IPA
+      - name: Build and Archive
         run: |
-          mkdir Payload
-          # Search for the .app folder inside the build directory
-          find ./build-ios -type d -name "*.app" -exec cp -R {} Payload/ \;
-          zip -r qdomyos-zwift.ipa Payload
+          cd src
+          xcodebuild archive \
+            -project qdomyos-zwift.xcodeproj \
+            -scheme qdomyos-zwift \
+            -configuration Release \
+            -archivePath $PWD/build/qdomyos-zwift.xcarchive \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Export IPA Payload
+        run: |
+          # Manually package the .app into a Payload folder to create an unsigned IPA
+          mkdir -p Payload
+          cp -r src/build/qdomyos-zwift.xcarchive/Products/Applications/qdomyos-zwift.app Payload/
+          zip -r qdomyos-zwift-unsigned.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qdomyos-zwift-ios
-          path: qdomyos-zwift.ipa
+          name: qz-ios-ipa
+          path: qdomyos-zwift-unsigned.ipa
