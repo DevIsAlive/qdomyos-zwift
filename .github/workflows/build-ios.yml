@@ -32,7 +32,8 @@ jobs:
       - name: Pre-create Generated Source Stubs
         working-directory: build-ios
         run: |
-          # Satisfies Xcode's static file check before build scripts execute
+          # Ensure the directory exists first, then create the stubs
+          mkdir -p src
           touch src/qdomyoszwift_qmltyperegistrations.cpp
           touch src/qdomyoszwift_qml_plugin_import.cpp
 
