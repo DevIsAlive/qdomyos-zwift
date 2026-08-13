@@ -1,9 +1,9 @@
 name: iOS Unsigned Build (For Sideloadly)
 
 on:
-  workflow_dispatch: # Allows you to trigger the build manually
+  workflow_dispatch:
   push:
-    branches: [ "master", "main" ] # Triggers when code is updated
+    branches: [ "master", "main" ]
 
 jobs:
   build-ios:
@@ -20,7 +20,9 @@ jobs:
         with:
           version: '5.15.2'
           target: 'ios'
-          
+          # This line tells it to download the missing add-ons
+          modules: 'qtnetworkauth qtcharts'
+
       - name: Create Build Folder
         run: mkdir build-ios
 
@@ -30,7 +32,6 @@ jobs:
 
       - name: Compile App (Bypass Apple Code Signing)
         working-directory: build-ios
-        # The flags at the end tell Xcode to completely ignore the missing developer certificates
         run: make -j3 CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 
       - name: Package Unsigned IPA
@@ -40,7 +41,6 @@ jobs:
           mkdir -p Payload
           
           echo "Finding the compiled .app file and moving it..."
-          # This automatically searches for the compiled .app folder and moves it to Payload
           find . -type d -name "*.app" -exec cp -R {} Payload/ \;
           
           echo "Compressing into IPA format..."
