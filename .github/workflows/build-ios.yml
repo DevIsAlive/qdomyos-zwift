@@ -30,6 +30,33 @@ jobs:
       - name: Apply the maintainer's real Bluetooth patch
         run: cp qt-patches/ios/5.15.2/binary/*.* ${{ github.workspace }}/output/ios/Qt/5.15.2/ios/lib/
 
+      # --- NEW: build qthttpserver for iOS so qtHaveModule(httpserver) is true,
+      # which is what makes the .pri file add QT += webview for iOS. Without this,
+      # the in-app Strava login WebView silently fails to load and the app falls
+      # back to external Safari, which can't reliably complete the 127.0.0.1
+      # loopback OAuth callback.
+      - name: Prep qthttpserver 3rd-party headers
+        run: cp qHttpServerBin/5.15.2/headers/* src/qthttpserver/src/3rdparty/http-parser/
+
+      - name: Cache qthttpserver build (iOS)
+        id: cache-qthttpserver-ios
+        uses: actions/cache@v4
+        with:
+          path: src/qthttpserver
+          key: qthttpserver-ios-${{ runner.os }}-qt5.15.2-v1
+
+      - name: Build qthttpserver for iOS
+        if: steps.cache-qthttpserver-ios.outputs.cache-hit != 'true'
+        working-directory: src/qthttpserver
+        run: |
+          qmake -spec macx-ios-clang CONFIG+=release CONFIG+=device CONFIG-=simulator
+          make -j4
+
+      - name: Install qthttpserver for iOS
+        working-directory: src/qthttpserver
+        run: make install
+      # --- end new steps ---
+
       - name: Create Build Folder
         run: mkdir build-ios
 
@@ -55,9 +82,9 @@ jobs:
           echo "CODE_SIGN_IDENTITY = " >> bypass.xcconfig
           echo "CODE_SIGN_STYLE = Manual" >> bypass.xcconfig
           echo "DEVELOPMENT_TEAM = " >> bypass.xcconfig
-          
+
           export XCODE_XCCONFIG_FILE="$PWD/bypass.xcconfig"
-          
+
           make -j4
 
       - name: Package Unsigned IPA
